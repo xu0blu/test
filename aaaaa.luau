@@ -66,11 +66,12 @@ getgenv().decompile = function(Path, ...)
     local counter = 0
     local renameMap = {}
 
-    Output = Output:gsub("local%s+([%w_]+)", function(name)
+    -- sadece function keyword'ü ile başlamayan local satırlarını değiştir
+    Output = Output:gsub("local%s+([%w_]+)%s*=", function(name)
         counter = counter + 1
         local newName = "v" .. counter
         renameMap[name] = newName
-        return "local " .. newName
+        return "local " .. newName .. " ="
     end)
 
     -- tüm referansları güncelle
