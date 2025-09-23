@@ -44,84 +44,75 @@ getgenv().decompile = function(Path, ...)
         return "--" .. SynVersion .. "\n--No bytecode was found (empty script)."
     end
 
-    -- Temizleme ve düzenleme işlemleri
+    -- Temizleme ve düzenleme
     Output = Output:gsub("Synapse X Luau", SynVersion)
     Output = Output:gsub("\r\n", "\n")
     Output = Output:gsub("\n\n+", "\n")
     Output = Output:gsub("-- Decompiled by Krnl", "")
     Output = Output:gsub("-- Saved by UniversalSynSaveInstance (Join to Copy Games) https://discord.gg/wx4ThpAsmw", "")
-    Output = Output:gsub("([^\n])\n", "%1;\n")
 
-    -- __set_list ve tüm yorum satırlarını sil
+    -- __set_list ve yorum satırlarını sil
     Output = table.concat(table.pack((function()
         local lines = {}
         for line in Output:gmatch("([^\n]*)\n?") do
-            if not line:match("%b()__set_list%b()") and not line:match("^%s*%-%-") then
+            if not line:match("%b()__set_list%b()") and not line:match("^%s*%-%-") and not line:match("^%s*goto%s+") and not line:match("^%s*::.*::$") then
                 table.insert(lines, line)
             end
         end
         return table.unpack(lines)
     end)()), "\n")
 
-    -- local değişkenleri v1, v2, v3... olarak değiştir ve referansları güncelle
+    -- local değişkenleri v1, v2, v3... olarak değiştir, function satırları bozulmasın
     local counter = 0
     local renameMap = {}
-
-    -- sadece function keyword'ü ile başlamayan local satırlarını değiştir
     Output = Output:gsub("local%s+([%w_]+)%s*=", function(name)
         counter = counter + 1
         local newName = "v" .. counter
         renameMap[name] = newName
         return "local " .. newName .. " ="
     end)
-
-    -- tüm referansları güncelle
+    -- referansları güncelle
     for oldName, newName in pairs(renameMap) do
         Output = Output:gsub("%f[%w_]" .. oldName .. "%f[%W]", newName)
     end
 
-    if Configs.RemoveSemicolon then
-        Output = Output:gsub("%s*;%s*%f[\n]", "\n")
-    end
+    -- semicolon ekleme
+    Output = Output:gsub("([^\n])\n", function(c)
+        if c:match("^%s*::.*::$") or c:match("^%s*goto%s+") then
+            return c .. "\n"
+        else
+            return c .. ";\n"
+        end
+    end)
 
+    -- variable/constant header
     local DefinedVariables = {}
     local DefinedConstants = {}
-
     local highest = 0
     if type(Configs.GetHighestIndex) == "function" then
         highest = tonumber(Configs.GetHighestIndex(Output)) or 0
     end
-
     for i = 1, highest do
         local varName = "Variable_" .. i
         local constName = "Constant_" .. i
-
         if Output:find("local%s+" .. varName) and not Configs.IsDefined(DefinedVariables, "local " .. varName) then
             table.insert(DefinedVariables, varName .. " = nil")
         end
-
         if Output:find("local%s+" .. constName) and not Configs.IsDefined(DefinedConstants, "local " .. constName) then
             table.insert(DefinedConstants, constName .. " = nil")
         end
     end
-
     local header = "-- Decompiled with the " .. SynVersion .. " decompiler.\n\n"
     local bodySplit = Output:match("%-%- Decompiled with the .-\n\n(.*)") or Output
-
     if #DefinedVariables > 0 then
         local varHeader = "-- [[ Variables ]] --\n"
-        for _, v in ipairs(DefinedVariables) do
-            varHeader = varHeader .. v .. "\n"
-        end
+        for _, v in ipairs(DefinedVariables) do varHeader = varHeader .. v .. "\n" end
         Output = header .. varHeader .. "\n" .. bodySplit
         bodySplit = Output
     end
-
     if #DefinedConstants > 0 then
         local constHeader = "-- [[ Constants ]] --\n"
-        for _, c in ipairs(DefinedConstants) do
-            constHeader = constHeader .. c .. "\n"
-        end
+        for _, c in ipairs(DefinedConstants) do constHeader = constHeader .. c .. "\n" end
         Output = header .. constHeader .. "\n" .. bodySplit
     end
 
@@ -129,16 +120,13 @@ getgenv().decompile = function(Path, ...)
         return "--" .. SynVersion .. "\n--No bytecode was found (most likely a Synapse X generated script or empty script)."
     end
 
-    -- Output'un 2. satırına küçük harflerle ekle
+    -- 2. satıra blu decompiler mesajı ekle
     local lines = {}
-    for line in Output:gmatch("([^\n]*)\n?") do
-        table.insert(lines, line)
-    end
+    for line in Output:gmatch("([^\n]*)\n?") do table.insert(lines, line) end
     table.insert(lines, 2, "-- decompiled with blu's decompiler xd")
     Output = table.concat(lines, "\n")
 
     return Output
 end
 
--- En sona decompile kısayolu
 decompile = getgenv().decompile
