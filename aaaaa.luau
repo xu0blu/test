@@ -77,20 +77,22 @@ getgenv().decompile = function(Path, ...)
     end
 
     -- semicolon ekleme
-   Output = Output:gsub("([^\n]+)\n", function(line)
+  Output = Output:gsub("([^\n]+)\n", function(line)
+    line = line:gsub("^%s*(.-)%s*$", "%1") -- baş/son boşlukları temizle
+    -- keyword veya label/goto satırlarını atla
     if line:match("^%s*::.*::$") or
        line:match("^%s*goto%s+") or
        line:match("^%s*if%s") or
        line:match("^%s*for%s") or
        line:match("^%s*while%s") or
-       line:match("^%s*function%s*%b()") or  -- function(...) atla
+       line:match("^%s*function%s*%b()") or
        line:match("^%s*repeat%s") or
        line:match("^%s*else%s") or
        line:match("^%s*elseif%s") or
        line:match("^%s*do%s") then
         return line .. "\n"
     else
-        return line .. ";\n"
+        return line .. ";\n" -- diğer normal satırlara ; ekle
     end
 end)
 
