@@ -93,7 +93,6 @@ getgenv().decompile = function(Path, ...)
         return line .. ";\n"
     end
 end)
-end)
 
     -- variable/constant header
     local DefinedVariables = {}
