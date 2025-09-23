@@ -78,13 +78,12 @@ getgenv().decompile = function(Path, ...)
 
     -- semicolon ekleme
    Output = Output:gsub("([^\n]+)\n", function(line)
-    -- keyword veya label/goto satırlarını atla
     if line:match("^%s*::.*::$") or
        line:match("^%s*goto%s+") or
        line:match("^%s*if%s") or
        line:match("^%s*for%s") or
        line:match("^%s*while%s") or
-       line:match("^%s*function%s") or
+       line:match("^%s*function%s*%b()") or  -- function(...) atla
        line:match("^%s*repeat%s") or
        line:match("^%s*else%s") or
        line:match("^%s*elseif%s") or
@@ -93,6 +92,7 @@ getgenv().decompile = function(Path, ...)
     else
         return line .. ";\n"
     end
+end)
 end)
 
     -- variable/constant header
