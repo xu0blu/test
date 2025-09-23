@@ -62,12 +62,21 @@ getgenv().decompile = function(Path, ...)
         return table.unpack(lines)
     end)()), "\n")
 
-    -- local değişkenleri v1, v2, v3... olarak değiştir
+    -- local değişkenleri v1, v2, v3... olarak değiştir ve referansları güncelle
     local counter = 0
+    local renameMap = {}
+
     Output = Output:gsub("local%s+([%w_]+)", function(name)
         counter = counter + 1
-        return "local v" .. counter
+        local newName = "v" .. counter
+        renameMap[name] = newName
+        return "local " .. newName
     end)
+
+    -- tüm referansları güncelle
+    for oldName, newName in pairs(renameMap) do
+        Output = Output:gsub("%f[%w_]" .. oldName .. "%f[%W]", newName)
+    end
 
     if Configs.RemoveSemicolon then
         Output = Output:gsub("%s*;%s*%f[\n]", "\n")
@@ -117,6 +126,14 @@ getgenv().decompile = function(Path, ...)
     if Output:lower():find("bytecode") then
         return "--" .. SynVersion .. "\n--No bytecode was found (most likely a Synapse X generated script or empty script)."
     end
+
+    -- Output'un 2. satırına küçük harflerle ekle
+    local lines = {}
+    for line in Output:gmatch("([^\n]*)\n?") do
+        table.insert(lines, line)
+    end
+    table.insert(lines, 2, "-- decompiled with blu's decompiler xd")
+    Output = table.concat(lines, "\n")
 
     return Output
 end
