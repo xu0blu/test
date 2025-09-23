@@ -50,6 +50,7 @@ getgenv().decompile = function(Path, ...)
     Output = Output:gsub("\n\n+", "\n")
     Output = Output:gsub("-- Decompiled by Krnl", "")
     Output = Output:gsub("-- Saved by UniversalSynSaveInstance (Join to Copy Games) https://discord.gg/wx4ThpAsmw", "")
+    Output = Output:gsub("([^\n])\n", "%1;\n")
 
     -- __set_list ve tüm yorum satırlarını sil
     Output = table.concat(table.pack((function()
