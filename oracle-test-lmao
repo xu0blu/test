@@ -1,0 +1,82 @@
+-- decompiled with blu's decompiler xd
+getgenv().decompile = function(Path, ...)
+    local SynDecompile = assert(getgenv().decompile, "Orijinal 'decompile' bulunamadı.")
+    if typeof(Path) ~= "Instance" or not Path.ClassName:find("Script") then
+        return "--[[ INVALID SCRIPT INSTANCE ]]--"
+    end
+
+    local Output
+    local args = {...}
+
+    spawn(function()
+        Output = SynDecompile(Path, unpack(args))
+    end)
+
+    local Tick = 0
+    repeat task.wait(1) Tick = Tick + 1 until Output or Tick >= 5
+    if not Output then return "-- decompile timeout" end
+
+    -- Satırları ayır
+    local lines = {}
+    for line in Output:gmatch("([^\n]*)\n?") do
+        if not line:match("^%s*goto%s+") and not line:match("^%s*::.*::$") and not line:match("%b()__set_list%b()") then
+            table.insert(lines, line)
+        end
+    end
+    Output = table.concat(lines, "\n")
+
+    -- Table içi self referanslarını ayır
+    Output = Output:gsub("local%s+(%w+)%s*=%s*{(.-)}", function(tblName, body)
+        local assignments = {}
+        for k, v in body:gmatch("([%w_]+)%s*=%s*([%w_%.]+)") do
+            table.insert(assignments, tblName .. "." .. k .. " = " .. v)
+        end
+        return "local " .. tblName .. " = {}\n" .. table.concat(assignments, "\n")
+    end)
+
+    -- Local isimlerini belirle
+    local servicePattern = "game:GetService%([\"']([%w_]+)[\"']%)"
+    local modulePattern = "require%((.-)%)"
+
+    local renameMap = {}
+    local vCounter = 1
+
+    for line in Output:gmatch("([^\n]*)\n?") do
+        -- Service ve assetleri l_<Name>_0 olarak bırak
+        for name in line:gmatch(servicePattern) do
+            local old = line:match("local%s+([%w_]+)%s*=%s*game:GetService")
+            if old then renameMap[old] = "l_" .. name .. "_0" end
+        end
+        -- ModuleScript, require veya table olanlar v1,v2,...
+        for req in line:gmatch(modulePattern) do
+            local old = line:match("local%s+([%w_]+)%s*=%s*require")
+            if old and not renameMap[old] then
+                renameMap[old] = "v" .. vCounter
+                vCounter = vCounter + 1
+            end
+        end
+        -- Table literal local’ler
+        local tbl = line:match("local%s+([%w_]+)%s*=%s*{")
+        if tbl and not renameMap[tbl] then
+            renameMap[tbl] = "v" .. vCounter
+            vCounter = vCounter + 1
+        end
+    end
+
+    -- Değiştir
+    for oldName, newName in pairs(renameMap) do
+        Output = Output:gsub("%f[%w_]" .. oldName .. "%f[%W]", newName)
+    end
+
+    -- 2. satıra blu mesajı ekle (zaten başta var ama garanti)
+    local finalLines = {}
+    for line in Output:gmatch("([^\n]*)\n?") do table.insert(finalLines, line) end
+    if not finalLines[2]:match("decompiled with blu") then
+        table.insert(finalLines, 2, "-- decompiled with blu's decompiler xd")
+    end
+    Output = table.concat(finalLines, "\n")
+
+    return Output
+end
+
+decompile = getgenv().decompile
