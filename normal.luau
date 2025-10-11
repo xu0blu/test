@@ -1,5 +1,6 @@
 local SynDecompile = getgenv().decompile
 
+-- decompiled with blu's decompiler xd
 getgenv().decompile = function(Path, ...)
 	if typeof(Path) ~= "Instance" or not Path.ClassName:find("Script") then
 		return "--[[ INVALID SCRIPT INSTANCE ]]--"
@@ -11,14 +12,10 @@ getgenv().decompile = function(Path, ...)
 		return "-- failed to decompile script"
 	end
 
-	-- Gereksiz satırları temizle
+	-- Gereksiz satırları sil
 	local lines = {}
 	for line in Output:gmatch("([^\n]*)\n?") do
-		if not line:match("^%s*goto%s+") 
-			and not line:match("^%s*::.*::$") 
-			and not line:match("__set_list") 
-			and not line:match("%-%-%s*upvalues") 
-			and not line:match("Decompiled by Krnl") then
+		if not line:match("^%s*goto%s+") and not line:match("^%s*::.*::$") and not line:match("__set_list") then
 			table.insert(lines, line)
 		end
 	end
@@ -32,12 +29,15 @@ getgenv().decompile = function(Path, ...)
 		end
 	)
 
-	-- v_u_ veya u_ değişkenlerini v1,v2... olarak sırala
+	-- local v_u_ veya u_ değişkenlerini v1,v2,v3... yap
 	local vcount = 1
 	local renameMap = {}
+
 	for var in Output:gmatch("local%s+(v_u_%w+)%s*=") do
-		renameMap[var] = "v" .. vcount
-		vcount += 1
+		if not renameMap[var] then
+			renameMap[var] = "v" .. vcount
+			vcount += 1
+		end
 	end
 	for var in Output:gmatch("local%s+(u_%w+)%s*=") do
 		if not renameMap[var] then
@@ -45,27 +45,39 @@ getgenv().decompile = function(Path, ...)
 			vcount += 1
 		end
 	end
+
 	for old, new in pairs(renameMap) do
-		Output = Output:gsub("%f[%w_]" .. old .. "%f[%W]", new)
+		Output = Output:gsub("(%f[%w_])" .. old .. "(%f[%W])", "%1" .. new .. "%2")
 	end
 
-	-- Sadece end satırlarına ; ekle
-	local fixed = {}
-	for line in Output:gmatch("[^\n]+") do
-		if line:match("^%s*end%s*$") then
-			line = line .. ";"
+	-- kalan v_u_ veya u_ referanslarını da düzelt
+	for ref in Output:gmatch("v_u_%w+") do
+		if not renameMap[ref] then
+			renameMap[ref] = "v" .. vcount
+			Output = Output:gsub(ref, renameMap[ref])
+			vcount += 1
 		end
-		table.insert(fixed, line)
 	end
-	Output = table.concat(fixed, "\n")
+	for ref in Output:gmatch("u_%w+") do
+		if not renameMap[ref] then
+			renameMap[ref] = "v" .. vcount
+			Output = Output:gsub(ref, renameMap[ref])
+			vcount += 1
+		end
+	end
 
-	-- İkinci satıra blu etiketi ekle
+	-- tabloları dokunmadan bırak (self referans kaldırıldı)
+
+	-- "end" sonlarına ";" ekle
+	Output = Output:gsub("(%f[%w_]end)(%s*)", "end;%2")
+
+	-- başlığa sadece blu etiketi koy
 	local lns = {}
 	for line in Output:gmatch("([^\n]*)\n?") do
 		table.insert(lns, line)
 	end
-	if not lns[2] or not lns[2]:match("decompiled with blu") then
-		table.insert(lns, 2, "-- decompiled with blu's decompiler xd")
+	if not lns[1]:match("decompiled with blu") then
+		table.insert(lns, 1, "-- decompiled with blu's decompiler xd")
 	end
 	Output = table.concat(lns, "\n")
 
