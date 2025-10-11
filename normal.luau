@@ -69,7 +69,12 @@ getgenv().decompile = function(Path, ...)
 	-- tabloları dokunmadan bırak (self referans kaldırıldı)
 
 	-- "end" sonlarına ";" ekle
-	Output = Output:gsub("(%f[%w_]end)(%s*)", "end;%2")
+	if Output:find("(%f[%w_]end)(%s*)") then
+		Output = Output:gsub("(%f[%w_]end)(%s*)", "end;%2")
+	end
+	if Output:find("(%f[%w_]end))(%s*)") then
+		Output = Output:gsub("(%f[%w_]end))(%s*)", "end);%2")
+	end
 
 	-- başlığa sadece blu etiketi koy
 	local lns = {}
